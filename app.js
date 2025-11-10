@@ -7,7 +7,6 @@ const ALLOWLIST=['biblioteca@esparedes.pt'];
 const ESCOLA_TIMES=['08:15-09:05','09:10-10:00','10:15-11:05','11:15-12:05','12:10-13:00','13:05-13:55','14:00-14:50','15:00-15:50','16:05-16:55','17:00-17:50'];
 const DIAS=['Segunda','Terça','Quarta','Quinta','Sexta'];
 let msalApp,account,accessToken;
-state._wb=null; state._wbName='';
 const state={config:{professores:[],alunos:[],disciplinas:[],oficinas:[],calendario:{}},reg:{versao:'v2',registos:[]},adminSel:{entity:'professores',index:-1}};
 const $=s=>document.querySelector(s);
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));}
@@ -110,7 +109,7 @@ function renderProfessor(){ const email=getEmail(); const prof=(state.config.pro
   aulas.forEach(a=>{ (a.alunoIds||['CA']).forEach(al=>{ const tr=document.createElement('tr'); const next=nextNL(al,a.disciplinaId,prof.id); tr.innerHTML = `<td>${esc(a.horaInicio)}–${esc(a.horaFim)}</td><td>${esc(disc[a.disciplinaId]?.nome||a.disciplinaId)}</td><td>${esc(al)} · ${esc(aluno[al]?.nome||al)}</td><td><input class='input nlec' value='${esc(next)}' data-al='${esc(al)}' data-a='${esc(a.id)}'></td><td><input class='input sumario' placeholder='Sumário' data-al='${esc(al)}' data-a='${esc(a.id)}'></td><td><select class='input sts' data-al='${esc(al)}' data-a='${esc(a.id)}'><option value='P'>P</option><option value='A'>A</option><option value='J'>J</option></select></td><td class='actions-cell'><input type='checkbox' class='chk sel' data-al='${esc(al)}' data-a='${esc(a.id)}'><button class='btn btn-save' data-al='${esc(al)}' data-a='${esc(a.id)}'>Guardar</button></td>`; tbodyHoje.appendChild(tr); }); });
   tbodyHoje.querySelectorAll('.btn-save').forEach(btn=> btn.addEventListener('click',()=> saveOne(btn.dataset.a, btn.dataset.al, data, prof.id)) );
   $('#btnSalvarSelecionados')?.addEventListener('click',()=>{ tbodyHoje.querySelectorAll('.sel:checked').forEach(chk=> saveOne(chk.dataset.a, chk.dataset.al, data, prof.id)); });
-  renderPendentes(prof, data); renderProfessorGrid(prof);
+  renderPendentes(prof, data);
 }
 
 function nextNL(al,disc,prof){ const nums=(state.reg.registos||[]).filter(r=> r.alunoId===al && r.disciplinaId===disc && r.professorId===prof).map(r=>parseInt(r.numeroLicao,10)).filter(n=>!isNaN(n)); return (nums.length? Math.max(...nums)+1:1).toString(); }
@@ -122,18 +121,6 @@ function renderPendentes(prof, today){ const tbody=$('#tblPend tbody'); tbody.in
 }
 
 async function saveReg(){ try{ setSync('🔁 sincronizando...'); await gSaveWithParents(REG_PATH,state.reg); localStorage.setItem('esp_reg',JSON.stringify(state.reg)); setSync('💾 guardado'); }catch(e){ setSync('⚠ offline'); localStorage.setItem('esp_reg',JSON.stringify(state.reg)); }}
-
-
-// ===== Excel helpers (XLSX) =====
-async function loadWorkbook(file){
-  return new Promise((resolve,reject)=>{
-    const fr=new FileReader();
-    fr.onload=()=>{ try{ const data=new Uint8Array(fr.result); const wb=XLSX.read(data,{type:'array'}); resolve(wb); }catch(e){ reject(e);} };
-    fr.onerror=reject; fr.readAsArrayBuffer(file); });
-}
-function sheetBy(wb,names){ for(const n of names){ if(wb.Sheets[n]) return {name:n,ws:wb.Sheets[n]}; } return null; }
-function rowsFrom(ws){ return XLSX.utils.sheet_to_json(ws,{defval:'',raw:false}); }
-function guessCol(obj, aliases){ for(const k in obj){ const key=k.trim().toLowerCase(); for(const a of aliases){ if(key===a.toLowerCase()) return k; } } return null; }
 
 function diag(){ const el=$('#diagInfo'); const why=$('#adminGateInfo'); const email=getEmail(); if(el) el.innerHTML=`SITE_ID: <code>${esc(SITE_ID)}</code><br>CFG_PATH: <code>${esc(CFG_PATH)}</code><br>REG_PATH: <code>${esc(REG_PATH)}</code>`; if(why){ let reason='não admin'; if(ALLOWLIST.includes(email)) reason='allow-list'; else { const prof=(state.config?.professores||[]).find(p=> (p.email||'').toLowerCase()===email); if(prof && String(prof.role||'').toLowerCase()==='admin') reason='role=admin (config)'; } why.textContent=`Utilizador: ${email||'-'} • Perfil: ${isAdmin()?'Admin':'Professor'} • Gate: ${reason}`; } }
 $('#btnDiagCreateFolders')?.addEventListener('click',async()=>{ try{ await ensureFolder(pdir(CFG_PATH)); await ensureFolder(pdir(REG_PATH)); toast('Pastas OK'); }catch(e){ Swal.fire('Erro','Falha ao criar pastas: '+e.message,'error'); } });
@@ -155,60 +142,18 @@ $('#btnProfExportXLSX')?.addEventListener('click',()=>{ const email=getEmail(); 
 $('#btnProfExportPDF')?.addEventListener('click',()=>{ const email=getEmail(); const prof=(state.config.professores||[]).find(p=>(p.email||'').toLowerCase()===email); if(!prof) return toast('Sem professor associado'); const rows=(state.reg.registos||[]).filter(r=> r.professorId===prof.id); exportPdf(rows,`Meus registos ${prof.id}`); });
 $('#btnProfExportFiltros')?.addEventListener('click',()=> pickFiltersAndExport('prof'));
 
-$('#btnImpProf')?.addEventListener('click',()=>importProfessores());
-$('#btnImpAlu')?.addEventListener('click',()=>importAlunos());
-$('#btnImpDisc')?.addEventListener('click',()=>importDisciplinas());
-$('#btnImpAulas')?.addEventListener('click',()=>importAulas());
-$('#btnGenProf')?.addEventListener('click',()=>gerarProfessores());
-$('#btnGenAlu')?.addEventListener('click',()=>gerarAlunos());
-$('#btnGenDisc')?.addEventListener('click',()=>gerarDisciplinas());
-$('#btnGenAulas')?.addEventListener('click',()=>gerarAulas());
-
 $('#btnMsLogin')?.addEventListener('click',()=>doLogin());
 $('#btnMsLogout')?.addEventListener('click',()=>doLogout());
 
 (async function(){ await initMsal(); const c=localStorage.getItem('esp_config'); if(c) try{ state.config=JSON.parse(c);}catch{} const r=localStorage.getItem('esp_reg'); if(r) try{ state.reg=JSON.parse(r);}catch{} await loadAll(); })();
 
-$('#fileExcel')?.addEventListener('change', async ()=>{ const f=$('#fileExcel').files?.[0]; if(!f){ toast('Nenhum ficheiro'); return;} try{ state._wb=await loadWorkbook(f); state._wbName=f.name; toast('Workbook carregado'); }catch(e){ Swal.fire('Erro','Não foi possível ler o Excel: '+e.message,'error'); } });
-$('#btnWbInfo')?.addEventListener('click',()=>{ if(!state._wb) return toast('Sem workbook'); const names=state._wb.SheetNames.join(', '); Swal.fire('Workbook','Sheets: '+names,'info'); });
+function setWbLoaded(on){ ['btnWbInfo','btnImpProf','btnImpAlu','btnImpDisc','btnImpAulas','btnGenProf','btnGenAlu','btnGenDisc','btnGenAulas'].forEach(id=>{ const el=document.getElementById(id); if(!el) return; el.classList.toggle('btn-disabled',!on); el.title = on? '': 'Carrega um Excel primeiro'; }); }
 
+// Initialize buttons disabled at start
+document.addEventListener('DOMContentLoaded',()=> setWbLoaded(!!state._wb));
 
-async function importProfessores(){ if(!state._wb) return toast('Carrega primeiro o ficheiro Excel'); const f=sheetBy(state._wb,['Professores','Docentes','Teachers']); if(!f) return Swal.fire('Erro','Sheet "Professores" não encontrada','error'); const rows=rowsFrom(f.ws); const out=[]; for(const r of rows){ const idKey=guessCol(r,['id','professorid','codigo']); const nomeKey=guessCol(r,['nome','name']); const emailKey=guessCol(r,['email']); const roleKey=guessCol(r,['role','perfil']); const id=(r[idKey]||'').trim(); if(!RX_PROF_ID.test(id)) continue; out.push({id,nome:(r[nomeKey]||'').trim(),email:(r[emailKey]||'').trim(),role:(r[roleKey]||'')}); } if(!out.length) return toast('Nada para importar'); state.config.professores=out; await saveCfg(); renderAdminGrid(); toast('Professores importados'); }
-async function importAlunos(){ if(!state._wb) return toast('Carrega primeiro o ficheiro Excel'); const f=sheetBy(state._wb,['Alunos','Students']); if(!f) return Swal.fire('Erro','Sheet "Alunos" não encontrada','error'); const rows=rowsFrom(f.ws); const out=[]; for(const r of rows){ const idKey=guessCol(r,['id','codigo','alunoid']); const nomeKey=guessCol(r,['nome','name']); const numeroKey=guessCol(r,['numero','nº','n']); const turmaKey=guessCol(r,['turma','classe']); const id=String(r[idKey]||'').trim(); if(!id) continue; out.push({id,nome:(r[nomeKey]||'').trim(),numero:(r[numeroKey]||'').trim(),turma:(r[turmaKey]||'').trim()}); } state.config.alunos=out; await saveCfg(); renderAdminGrid(); toast('Alunos importados'); }
-async function importDisciplinas(){ if(!state._wb) return toast('Carrega primeiro o ficheiro Excel'); const f=sheetBy(state._wb,['Disciplinas','Subjects']); if(!f) return Swal.fire('Erro','Sheet "Disciplinas" não encontrada','error'); const rows=rowsFrom(f.ws); const out=[]; for(const r of rows){ const idKey=guessCol(r,['id','codigo']); const nomeKey=guessCol(r,['nome','name']); const id=(r[idKey]||'').trim(); if(!id) continue; out.push({id,nome:(r[nomeKey]||id).trim()}); } state.config.disciplinas=out; await saveCfg(); renderAdminGrid(); toast('Disciplinas importadas'); }
-async function importAulas(){ if(!state._wb) return toast('Carrega primeiro o ficheiro Excel'); const f=sheetBy(state._wb,['Aulas','Oficinas','Sessions']); if(!f) return Swal.fire('Erro','Sheet "Aulas/Oficinas" não encontrada','error'); const rows=rowsFrom(f.ws); const out=[]; for(const r of rows){ const pKey=guessCol(r,['professorid','prof','professor']); const dKey=guessCol(r,['disciplina','disciplinaid','disc']); const aKey=guessCol(r,['alunos','tokens','alunosservico']); const diaKey=guessCol(r,['dia','diasemana']); const hiKey=guessCol(r,['inicio','horainicio']); const hfKey=guessCol(r,['fim','horafim']); const salaKey=guessCol(r,['sala']); const profId=(r[pKey]||'').trim(); const disc=(r[dKey]||'').trim(); const dia=normDia(r[diaKey]||''); const hi=(r[hiKey]||'').trim(); const hf=(r[hfKey]||'').trim(); const tokens=String(r[aKey]||'').split(/[\s,\.]+/).map(s=>s.trim()).filter(Boolean); if(!profId||!disc||!dia||!hi||!hf) continue; const id=genAulaId(profId,dia,hi,disc,tokens); out.push({id, professorId:profId, disciplinaId:disc, alunoIds:tokens, diaSemana:dia, horaInicio:hi, horaFim:hf, sala:(r[salaKey]||'').trim()}); }
-  // merge unique by id
-  const map=new Map(out.map(x=>[String(x.id),x])); state.config.oficinas=[...map.values()]; await saveCfg(); renderAdminGrid(); toast('Aulas importadas'); }
+function makeSortableTable(tblSel){ const tbl=document.querySelector(tblSel); if(!tbl) return; const ths=tbl.querySelectorAll('thead th'); ths.forEach((th,idx)=>{ th.style.cursor='pointer'; th.addEventListener('click',()=>{ const tbody=tbl.querySelector('tbody'); const rows=[...tbody.querySelectorAll('tr')]; const asc = th.getAttribute('data-sort')!=='asc'; rows.sort((a,b)=>{ const ta=(a.children[idx]?.innerText||'').toLowerCase(); const tb=(b.children[idx]?.innerText||'').toLowerCase(); return asc? ta.localeCompare(tb): tb.localeCompare(ta); }); ths.forEach(x=>x.removeAttribute('data-sort')); th.setAttribute('data-sort', asc?'asc':'desc'); rows.forEach(r=>tbody.appendChild(r)); }); }); }
 
-
-function findHorarioSheet(){ if(!state._wb) return null; return sheetBy(state._wb,['Horarios','Horario','Schedule']); }
-async function gerarProfessores(){ const fh=findHorarioSheet(); if(!fh){ toast('Sheet Horarios não encontrada'); return;} const rows=rowsFrom(fh.ws); const set=new Map(); rows.forEach(r=>{ const p=String(r[guessCol(r,['professorid','prof'])]||'').trim(); const nome=String(r[guessCol(r,['nome','professor'])]||'').trim(); if(RX_PROF_ID.test(p)) set.set(p,{id:p,nome,email:'',role:''}); }); if(!set.size) return toast('Nada encontrado'); state.config.professores=[...set.values()]; await saveCfg(); renderAdminGrid(); toast('Gerado a partir do Horario'); }
-async function gerarDisciplinas(){ const fh=findHorarioSheet(); if(!fh){ toast('Sheet Horarios não encontrada'); return;} const rows=rowsFrom(fh.ws); const set=new Map(); rows.forEach(r=>{ const d=String(r[guessCol(r,['disciplina','disc'])]||'').trim(); if(d) set.set(normalizeDisciplina(d),{id:normalizeDisciplina(d),nome:d}); }); state.config.disciplinas=[...set.values()]; await saveCfg(); renderAdminGrid(); toast('Disciplinas geradas'); }
-async function gerarAlunos(){ const fh=findHorarioSheet(); if(!fh){ toast('Sheet Horarios não encontrada'); return;} const rows=rowsFrom(fh.ws); const map=new Map(); rows.forEach(r=>{ const tok=String(r[guessCol(r,['alunos','tokens','alunosservico'])]||''); const arr=tok.split(/[\s,\.]+/).map(s=>s.trim()).filter(Boolean); arr.forEach(id=>{ if(RX_ALUNO.test(id)){ if(!map.has(id)) map.set(id,{id,nome:id,numero:'',turma:''}); } }); }); state.config.alunos=[...map.values()]; await saveCfg(); renderAdminGrid(); toast('Alunos gerados'); }
-async function gerarAulas(){ const fh=findHorarioSheet(); if(!fh){ toast('Sheet Horarios não encontrada'); return;} const rows=rowsFrom(fh.ws); const out=[]; rows.forEach(r=>{ const p=String(r[guessCol(r,['professorid','prof'])]||'').trim(); const d=String(r[guessCol(r,['disciplina','disc'])]||'').trim(); const dia=normDia(r[guessCol(r,['dia'])]||''); const tempo=String(r[guessCol(r,['tempo','horario','hora'])]||'').trim(); let hi='',hf=''; if(tempo.includes('-')){ [hi,hf]=tempo.split('-').map(s=>s.trim()); } else { hi=tempo; }
-  const tok=String(r[guessCol(r,['alunos','tokens','alunosservico'])]||''); const arr=tok.split(/[\s,\.]+/).map(s=>s.trim()).filter(Boolean); if(!p||!d||!dia||!hi) return; const id=genAulaId(p,dia,hi,d,arr); out.push({id,professorId:p,disciplinaId:d,alunoIds:arr,diaSemana:dia,horaInicio:hi,horaFim:hf||ESCOLA_TIMES.find(x=>x.startsWith(hi))?.split('-')[1]||hi,sala:''}); }); const map=new Map(out.map(x=>[String(x.id),x])); state.config.oficinas=[...map.values()]; await saveCfg(); renderAdminGrid(); toast('Aulas geradas'); }
-
-
-function renderProfessorGrid(prof){
-  const host=$('#gridProfHorario'); const sec=$('#secProfHorario'); if(!host||!sec) return; if(!prof){ sec.classList.add('hidden'); host.innerHTML=''; return; }
-  sec.classList.remove('hidden');
-  // cabeçalho
-  let html = `<div class='hor-grid'><div></div>${DIAS.map(d=>`<div>${esc(d)}</div>`).join('')}</div>`;
-  ESCOLA_TIMES.forEach((t,ti)=>{
-    html += `<div class='hor-grid'><div class='muted'>${esc(t)}</div>`;
-    for(let di=1;di<=5;di++){
-      const aulas=(state.config.oficinas||[]).filter(a=> a.professorId===prof.id && Number(a.diaSemana)===di && a.horaInicio===t.split('-')[0]);
-      if(!aulas.length){ html += `<div class='hor-cell muted'>—</div>`; }
-      else{
-        const txt=aulas.map(a=>{
-          const disc=(state.config.disciplinas||[]).find(x=> String(x.id)===String(a.disciplinaId));
-          const label=disc?disc.nome:a.disciplinaId; const who=(Array.isArray(a.alunoIds)?a.alunoIds:[]).join(' ');
-          return `${esc(label)}<br><span class='muted' style='font-size:12px'>${esc(who)}</span>`;
-        }).join('<hr style="border:none;border-top:1px solid var(--primary-border);margin:6px 0">');
-        html += `<div class='hor-cell'>${txt}</div>`;
-      }
-    }
-    html += `</div>`;
-  });
-  host.innerHTML = html;
-}
+function isAlunoLike(x){ return RX_ALUNO.test(String(x)) || STUDENT_LIKE.has(normalizeService(String(x))); }
+function isServicoOnly(x){ return SERVICE_ONLY.has(normalizeService(String(x))); }
+function tipoClassFor(a){ const arr=Array.isArray(a.alunoIds)?a.alunoIds:[]; const hasAl=arr.some(isAlunoLike); const hasSvc=arr.some(isServicoOnly); if(hasAl && hasSvc) return 'pill-mix'; if(hasAl) return 'pill-al'; if(hasSvc) return 'pill-func'; return 'pill-func'; }
