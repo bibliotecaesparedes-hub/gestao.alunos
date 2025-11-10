@@ -20,7 +20,6 @@ body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:var(--bg);color
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .input{appearance:none;border:1.5px solid var(--primary-border);background:var(--card);color:var(--text);padding:10px 12px;border-radius:12px;min-height:42px;transition:border-color .12s ease, box-shadow .12s ease, background .12s;}
 .input:focus{outline:none;border-color:#9ab3e0;box-shadow:0 0 0 3px rgba(154,179,224,.25)}
-.input-file{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .card{background:var(--card);padding:14px;border-radius:12px;box-shadow:var(--shadow-sm)}
 .table{width:100%;border-collapse:collapse}
 .table th,.table td{border-bottom:1px solid var(--primary-border);padding:8px;text-align:left;vertical-align:middle}
@@ -32,3 +31,10 @@ body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:var(--bg);color
 .validation{color:#a30000;font-size:12px;margin-top:6px}
 .actions-cell{display:flex;gap:6px;align-items:center}
 .chk{width:18px;height:18px}
+.btn-disabled{opacity:.55;cursor:not-allowed}
+.admin-compact .sec-actions{gap:6px} .admin-compact .input{min-height:36px} .admin-compact .btn{padding:8px 12px;border-radius:10px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--primary-border)} .pill-al{background:#e6f8eb;border-color:#b8ebc5;color:#136b2e} .pill-func{background:#fff2d6;border-color:#ffd88a;color:#7a4d00} .pill-mix{background:#eaf0ff;border-color:#c8d4ea;color:#203a8a}
+.table-compact .table th,.table-compact .table td{padding:6px}
+#a_preview{font-size:12px;color:#51659c}
+.hor-grid{display:grid;grid-template-columns:120px repeat(5,1fr);gap:8px}
+.hor-cell{border:1px solid var(--primary-border);border-radius:8px;padding:6px;min-height:48px}
