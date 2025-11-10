@@ -14,7 +14,7 @@ function toast(t){try{Swal.fire({toast:true,position:'top-end',timer:1600,showCo
 function todayISO(){return new Date().toISOString().slice(0,10);} function getEmail(){return (account?.username||'').trim().toLowerCase();}
 function isAdmin(){const email=getEmail(); if(!email) return false; const cfg=state.config?.professores||[]; if(!Array.isArray(cfg)) return false; if(ALLOWLIST.includes(email)) return true; const p=cfg.find(x=>(x.email||'').toLowerCase()===email); const ok=p && String(p.role||'').toLowerCase()==='admin' && email.endsWith('@esparedes.pt'); return !!ok;}
 
-const MSAL_CONFIG={auth:{clientId:'c5573063-8a04-40d3-92bf-eb229ad4701c',authority:'https://login.microsoftonline.com/d650692c-6e73-48b3-af84-e3497ff3e1f1',redirectUri: (location.origin + location.pathname.replace(/index\.html$/,''))},cache:{cacheLocation:'localStorage',storeAuthStateInCookie:false}};
+const MSAL_CONFIG={auth:{clientId:'c5573063-8a04-40d3-92bf-eb229ad4701c',authority:'https://login.microsoftonline.com/d650692c-6e73-48b3-af84-e3497ff3e1f1',redirectUri:location.origin+location.pathname},cache:{cacheLocation:'localStorage',storeAuthStateInCookie:false}};
 const MSAL_SCOPES={scopes:['Files.ReadWrite.All','User.Read','openid','profile','offline_access']};
 async function initMsal(){if(typeof msal==='undefined')return; msalApp=new msal.PublicClientApplication(MSAL_CONFIG); try{const r=await msalApp.handleRedirectPromise(); if(r?.account){account=r.account; msalApp.setActiveAccount(account);} const accs=msalApp.getAllAccounts(); if(accs.length&&!account){account=accs[0]; msalApp.setActiveAccount(account);} }catch(e){console.warn('msal init',e);} updateAuth();}
 async function acquire(){try{const r=await msalApp.acquireTokenSilent(MSAL_SCOPES); accessToken=r.accessToken; return accessToken;}catch{await msalApp.acquireTokenRedirect(MSAL_SCOPES);}}
@@ -146,7 +146,3 @@ $('#btnMsLogin')?.addEventListener('click',()=>doLogin());
 $('#btnMsLogout')?.addEventListener('click',()=>doLogout());
 
 (async function(){ await initMsal(); const c=localStorage.getItem('esp_config'); if(c) try{ state.config=JSON.parse(c);}catch{} const r=localStorage.getItem('esp_reg'); if(r) try{ state.reg=JSON.parse(r);}catch{} await loadAll(); })();
-
-$('#btnDiagClearCache')?.addEventListener('click',()=>{ localStorage.removeItem('esp_config'); localStorage.removeItem('esp_reg'); toast('Cache local limpa'); });
-
-$('#btnDiagInitFiles')?.addEventListener('click', async ()=>{ try{ const cfg={professores:[],alunos:[],disciplinas:[],oficinas:[],calendario:{}}; const reg={versao:'v2',registos:[]}; setSync('🔁 a inicializar...'); await gSaveWithParents(CFG_PATH,cfg); await gSaveWithParents(REG_PATH,reg); state.config=cfg; state.reg=reg; setSync('💾 guardado'); renderAdminGrid(); renderProfessor(); toast('Ficheiros inicializados'); }catch(e){ Swal.fire('Erro','Falha a inicializar: '+e.message,'error'); }});
