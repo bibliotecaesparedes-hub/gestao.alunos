@@ -33,4 +33,5 @@ body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:var(--bg);color
 .actions-cell{display:flex;gap:6px;align-items:center}
 .chk{width:18px;height:18px}
 
-#a_preview{font-size:12px;color:#51659c}
+.hor-grid{display:grid;grid-template-columns:120px repeat(5,1fr);gap:8px}
+.hor-cell{border:1px solid var(--primary-border);border-radius:8px;padding:6px;min-height:48px}
