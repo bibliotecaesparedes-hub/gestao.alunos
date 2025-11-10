@@ -40,25 +40,6 @@ const ADMIN_SCHEMAS={
 };
 function g(e){const c=state.config; if(e==='professores')return c.professores; if(e==='alunos')return c.alunos; if(e==='disciplinas')return c.disciplinas; if(e==='oficinas')return c.oficinas; return []}
 function s(e,d){if(e==='professores')state.config.professores=d; if(e==='alunos')state.config.alunos=d; if(e==='disciplinas')state.config.disciplinas=d; if(e==='oficinas')state.config.oficinas=d;}
-
-// Normalização de tokens (disciplina/serviço)
-function cleanToken(x){
-  const t = String(x||'').trim().replace(/\.+/g,'').replace(/\s+/g,' ');
-  // Remover acentos básicos
-  const noAcc = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return noAcc;
-}
-function normalizeDisciplina(s){
-  const x = cleanToken(s).replace(/\s+/g,'');
-  return x;
-}
-function normalizeService(s){
-  let v = cleanToken(s);
-  // Mapas de normalização
-  const map = { 'NATACAO':'Natacao', 'NATAC':'Natacao', 'GESTPR':'GestPr', 'BOCCIA':'Boccia', 'DESPORTO':'Desporto', 'CJ':'CJ', 'CA':'CA', 'PM':'PM', 'PEI':'PEI', 'TP':'TP', 'APEE':'APEE', 'DT':'DT', 'AP':'AP', 'BE':'BE', 'SNZ':'SNZ' };
-  const key = v.replace(/\s+/g,'').upperCase?.() || v.replace(/\s+/g,'').toUpperCase();
-  return map[key] || v.replace(/\s+/g,'');
-}
 function deriveProfessorIdFromAulaId(aulaId){ const s=String(aulaId||'').trim(); return RX_PROF_AULA.test(s)? s : ''; }
 function normDia(v){ const s=String(v||'').trim(); if(/^\d+$/.test(s)) return Number(s); const i=DIAS.findIndex(d=> d.toLowerCase()===s.toLowerCase()); return i>=0? i+1 : 0; }
 
@@ -80,7 +61,7 @@ async function openForm(entity, initial){ const schema=ADMIN_SCHEMAS[entity]||[]
    Swal.__validateForm=()=>{ showErr(''); let ok=true; for(const k in rxForField){ const el=document.getElementById('fld_'+k); const rx=rxForField[k]; if(el && el.value){ if(!rx.test(el.value.trim())){ ok=false; showErr(`Formato inválido em ${k}. ${helpMsgs[k]||''}`); setInvalid('fld_'+k,true); } else setInvalid('fld_'+k,false); } } return ok; };
    if(entity==='oficinas'){ const ac=document.getElementById('ac_alunoIds'); const area=document.getElementById('fld_alunoIds'); const tags=document.getElementById('tags_alunoIds'); const alunos=(state.config.alunos||[]).map(a=>({id:a.id,nome:a.nome||a.id})); if(ac){ makeAutocomplete(ac,alunos); ac.addEventListener('change',()=>{ const id=ac.value.trim(); if(!id) return; const cur=area.value? area.value.split(',').map(s=>s.trim()).filter(Boolean):[]; if(!cur.includes(id)){ cur.push(id); area.value=cur.join(', '); const tg=document.createElement('span'); tg.className='tag'; tg.innerHTML=`${esc(id)} <span class='x' title='remover'>×</span>`; tg.querySelector('.x').addEventListener('click',()=>{ tg.remove(); const rest=(area.value.split(',').map(s=>s.trim()).filter(Boolean)).filter(z=>z!==id); area.value=rest.join(', '); }); tags.appendChild(tg);} ac.value=''; }); }
    }
- }, preConfirm:()=>{ if(Swal.__validateForm && Swal.__validateForm()===false) return false; const out={}; let ok=true; for(const f of (ADMIN_SCHEMAS[entity]||[])){ if(f.type==='button') continue; const el=document.getElementById('fld_'+f.key); let v=(el?.value??'').trim(); if(f.required && !v){ ok=false; document.getElementById('valMsg').textContent='Preenche todos os campos obrigatórios'; el?.focus(); break; } if(entity==='oficinas'&&f.key==='alunoIds'){ v=v? v.split(/[\s,\.]+/).map(s=>s.trim()).filter(Boolean):[]; } out[f.key]=v; } if(!ok) return false; if(entity==='oficinas'){ out.diaSemana=normDia(out.diaSemana); if(!out.professorId){ out.professorId=deriveProfessorIdFromAulaId(out.id); } } if(entity==='alunos'){ const m=(out.id||'').match(RX_ALUNO); if(m){ if(!out.turma) out.turma=`${m[1]}${m[2]}`; if(!out.numero) out.numero=m[3]; } } return out; }
+ }, preConfirm:()=>{ if(Swal.__validateForm && Swal.__validateForm()===false) return false; const out={}; let ok=true; for(const f of (ADMIN_SCHEMAS[entity]||[])){ if(f.type==='button') continue; const el=document.getElementById('fld_'+f.key); let v=(el?.value??'').trim(); if(f.required && !v){ ok=false; document.getElementById('valMsg').textContent='Preenche todos os campos obrigatórios'; el?.focus(); break; } if(entity==='oficinas'&&f.key==='alunoIds'){ v=v? v.split(',').map(s=>s.trim()).filter(Boolean):[]; } out[f.key]=v; } if(!ok) return false; if(entity==='oficinas'){ out.diaSemana=normDia(out.diaSemana); if(!out.professorId){ out.professorId=deriveProfessorIdFromAulaId(out.id); } } if(entity==='alunos'){ const m=(out.id||'').match(RX_ALUNO); if(m){ if(!out.turma) out.turma=`${m[1]}${m[2]}`; if(!out.numero) out.numero=m[3]; } } return out; }
  });
  return res.value; }
 
@@ -101,7 +82,8 @@ async function openHorarioEditor(idx){ const prof=(state.config.professores||[])
         <label style='display:block;text-align:left'>Disciplina<select id='a_disc' class='swal2-input'>${discOpts}</select></label>
         <label style='display:block;text-align:left'>Alunos (IDs/códigos, vírgulas)<textarea id='a_alunos' class='swal2-textarea' placeholder='a001,a002,CA'></textarea></label>
         <label style='display:block;text-align:left'>Sala<input id='a_sala' class='swal2-input' placeholder='Sala'></label>
-        <div class='muted'>Dia: ${DIAS[di-1]} • Tempo: ${ESCOLA_TIMES[ti]}</div>`;
+        <div class='muted'>Dia: ${DIAS[di-1]} • Tempo: ${ESCOLA_TIMES[ti]}</div>
+        <div id='a_preview' class='muted' style='margin-top:6px'></div>`;
       const res=await Swal.fire({title:'Nova Aula', html, showCancelButton:true, confirmButtonText:'Adicionar', preConfirm:()=>({ id:document.getElementById('a_id').value.trim(), disciplinaId:document.getElementById('a_disc').value, alunoIds:(document.getElementById('a_alunos').value||'').split(',').map(s=>s.trim()).filter(Boolean), sala:document.getElementById('a_sala').value.trim() })});
       if(!res.isConfirmed) return;
       const aulaId=res.value.id; const aula={ id:aulaId, professorId: deriveProfessorIdFromAulaId(aulaId) || prof.id, disciplinaId: res.value.disciplinaId, alunoIds: res.value.alunoIds, diaSemana: di, horaInicio: ESCOLA_TIMES[ti].split('-')[0], horaFim: ESCOLA_TIMES[ti].split('-')[1], sala: res.value.sala };
@@ -154,6 +136,23 @@ $('#btnAdminExportLista')?.addEventListener('click',()=>{ const e=$('#adminEntit
 $('#btnExportRegXlsx')?.addEventListener('click',()=> exportXlsx((state.reg.registos||[]),'registos'));
 $('#btnExportRegPdf')?.addEventListener('click',()=> exportPdf((state.reg.registos||[]),'Registos'));
 $('#btnExportFiltrado')?.addEventListener('click',()=> pickFiltersAndExport('admin'));
+
+$('#btnBackupNow')?.addEventListener('click', async ()=>{
+  try{
+    if(!accessToken) await acquire();
+    const ts = new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+    const dstCfg = `${BACKUP_FOLDER}/config_especial_${ts}.json`;
+    const dstReg = `${BACKUP_FOLDER}/2registos_alunos_${ts}.json`;
+    setSync('🔁 backup...');
+    await gSaveWithParents(dstCfg, state.config);
+    await gSaveWithParents(dstReg, state.reg);
+    setSync('✅ backup criado');
+    toast('Backup concluído');
+  }catch(e){
+    setSync('⚠ backup falhou');
+    Swal.fire('Erro','Backup falhou: '+e.message,'error');
+  }
+});
 
 $('#profData')?.addEventListener('change',()=>renderProfessor());
 $('#btnProfHoje')?.addEventListener('click',()=>{ if($('#profData')) $('#profData').value=todayISO(); renderProfessor(); });
